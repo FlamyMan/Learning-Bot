@@ -20,7 +20,6 @@ fi
 
 # Install the requirements
 $VIRTUALENV/bin/pip install -r requirements.txt
-$VIRTUALENV/bin/pip install python-telegram-bot[ext] --upgrade
 
 # Run your glorious application
-$VIRTUALENV/bin/python3 bot.py
+$VIRTUALENV/bin/python3 main.py

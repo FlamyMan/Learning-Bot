@@ -24,10 +24,10 @@ def parse_word(word) -> dict:
         logging.exception(f"Cannot get word{word}")
         return ""
 
-def parse_json(json) -> list:
+def parse_json(json) -> list[dict]:
     return [parse_word(word) for word in json]
 
-def get_jisho_data(question: str, page=1, limit=math.inf) -> list:
+def get_jisho_data(question: str, page=1, limit=math.inf) -> list[dict]:
     raw = "https://jisho.org/api/v1/search/words?keyword={quest}&page={page}"
     question = question.replace('#', '%23')
     question = question.replace(' ', '%20')

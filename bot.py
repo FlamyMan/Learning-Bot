@@ -1,7 +1,7 @@
 import logging
 from telegram import _update
 from telegram.ext import MessageHandler, filters, ConversationHandler, CommandHandler, _callbackcontext
-from get_info import get_info
+from server import get_info
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.NOTSET
@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 class Bot():
     START = "start"
-    EXAM = "examine"
-    NEW_WORDS = "newword"
+    EXAM = "exam"
+    NEW_WORDS = "newwords"
     GET_INFO = "getinfo"
     HELP = "help"
     STOP = "stop"
@@ -31,8 +31,7 @@ class Bot():
 
     async def unknown_command(update: _update.Update, context: _callbackcontext.CallbackContext):
         if update.message.text[1:] not in Bot.COMMANDS.keys():
-            #await update.message.reply_text(f"I don't know the command {update.message.text}")
-            await update.message.reply_text('\n'.join([str(h) for h in Bot.HANDLERS]))
+            await update.message.reply_text(f"I don't know the command {update.message.text}")
 
     async def help(update: _update.Update, context: _callbackcontext.CallbackContext):
         with open("help_text.txt") as f:
@@ -46,10 +45,10 @@ class Bot():
         await update.message.reply_text("Hello this command is currently WIP." + f"Command name {Bot.NEW_WORDS}")
 
     async def get_info_command(update: _update.Update, context: _callbackcontext.CallbackContext):
-        await update.message.reply_text("Please write the word you need.")
+        await update.message.reply_text("Please write down the word you are interested in.")
         return Bot.BotStates.GET
 
-    async def examine(update: _update.Update, context: _callbackcontext.CallbackContext):
+    async def exam(update: _update.Update, context: _callbackcontext.CallbackContext):
         await update.message.reply_text("Hello this command is currently WIP." + f"Command name {Bot.EXAM}")
         return ConversationHandler.END
 
@@ -58,6 +57,7 @@ class Bot():
         return ConversationHandler.END
     
     async def stop(update: _update.Update, context: _callbackcontext.CallbackContext):
+        context.user_data.clear()
         await update.message.reply_text("Have a good day!")
         return ConversationHandler.END
     
@@ -69,7 +69,7 @@ class Bot():
 
     COMMANDS = {
         START: CommandHandler(START, start),
-        EXAM: CommandHandler(EXAM, examine),
+        EXAM: CommandHandler(EXAM, exam),
         NEW_WORDS: CommandHandler(NEW_WORDS, new_word),
         GET_INFO: CommandHandler(GET_INFO, get_info_command),
         STOP: CommandHandler(STOP, stop),
@@ -81,7 +81,7 @@ class Bot():
             entry_points=[COMMANDS[EXAM]],
 
             states={
-                BotStates.EXAM: [MessageHandler(filters.TEXT & ~filters.COMMAND, examine)]
+                BotStates.EXAM: [MessageHandler(filters.TEXT & ~filters.COMMAND, exam)]
             },
 
             fallbacks=[COMMANDS[STOP]]
@@ -94,7 +94,7 @@ class Bot():
         },
         fallbacks=[COMMANDS[STOP], COMMANDS[CANCEL]]
     )
-    # UNKNOWN COMMAND MUST BE AT THE END OF THIS LIST
-    HANDLERS =list(COMMANDS.values()) + [ExamHandler, UNKNOWN_COMMAND]
+    # UNKNOWN_COMMAND MUST BE AT THE END OF THIS LIST
+    HANDLERS = [ExamHandler, INFO_HANDLER] + list(COMMANDS.values()) + [UNKNOWN_COMMAND]
 
 

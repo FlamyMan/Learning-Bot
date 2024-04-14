@@ -2,8 +2,8 @@ Hello my name is Japanese Learning Bot. I am here to improve your Japanese langu
 
 Bot Commands:
 /start - Start the bot
-/newwords - Learn 5 new words that will be shown in examine
-/examine - Test with words that bot have shown you
+/newwords - Learn 5 new words that will be shown in exam
+/exam - Test with words that bot have shown you
 /help - Show command list
 /getinfo - Display information about the word you are interested in
 /cancel - Cancel current action
