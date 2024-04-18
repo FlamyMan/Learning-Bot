@@ -1,10 +1,11 @@
-Hello my name is Japanese Learning Bot. I am here to improve your Japanese language skills.
+My name is Japanese Learning Bot. I am here to improve your Japanese language skills.
 
 Bot Commands:
 /start - Start the bot
-/newwords - Learn 5 new words that will be shown in exam
+/settings - Customize your experience
+/newwords - Learn new words that will be shown in the exam
 /exam - Test with words that bot have shown you
 /help - Show command list
 /getinfo - Display information about the word you are interested in
 /cancel - Cancel current action
-/stop - Stop the bot and clear your information
+/stop - Stop the bot and clear your information !!! Do not use this command if you aren't going to reset all your progress

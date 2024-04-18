@@ -5,7 +5,8 @@ import argparse
 import time
 import logging
 import json
-    
+
+
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
 )
@@ -38,10 +39,14 @@ def get_jisho_data(question: str, page=1, limit=math.inf) -> list[dict]:
         done = raw.format(quest=question, page=page)
         logging.info(done)
         try:
-            data = requests.get(done).json()["data"]
+            get: dict = requests.get(done).json()
+            if "data" in get.keys():
+                data = get["data"]
+            else:
+                break
         except Exception as e:
             logging.exception(e)
-            break
+            return [{"exception": "exception"}]
         if not data:
             break
         out += parse_json(data)
