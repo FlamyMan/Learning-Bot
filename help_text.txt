@@ -2,7 +2,6 @@ My name is Japanese Learning Bot. I am here to improve your Japanese language sk
 
 Bot Commands:
 /start - Start the bot
-/settings - Customize your experience
 /newwords - Learn new words that will be shown in the exam
 /exam - Test with words that bot have shown you
 /help - Show command list
