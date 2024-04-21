@@ -4,6 +4,8 @@ import sqlite3
 import logging
 import math
 import ast
+import random
+
 
 DATABASE_PATH = "ServerDataBase.db"
 logging.basicConfig(
@@ -29,7 +31,7 @@ class server:
                 translations = pair[OutKeys.ENGLISH]
                 parts_of_speech = pair[OutKeys.PARTS_OF_SPEECH]
 
-                out += f"\n{','.join(parts_of_speech)}\n{index+1}. {','.join(translations)}\n"
+                out += f"\n{', '.join(parts_of_speech)}\n{index+1}. {'; '.join(translations)}\n"
             keyboard = [[InlineKeyboardButton("See also", url=f"https://jisho.org/word/{japanese}")]]
             markup = InlineKeyboardMarkup(keyboard)
             return (out, {"reply_markup": markup})
@@ -128,6 +130,13 @@ class server:
             OutKeys.READ: read,
             OutKeys.DEFINITIONS: definitions
         }
+    
+    def find_word_by_learning(learning_id):
+        connection = sqlite3.connect(DATABASE_PATH)
+        cursor = connection.cursor()
+        word_id, = cursor.execute(f"""SELECT word_id FROM learning WHERE id == {learning_id}""").fetchone()
+        return server.find_word_in_DB(word_id)
+
 
     def get_new_word(previous_words: list[int]):
         connection = sqlite3.connect(DATABASE_PATH)
@@ -137,7 +146,45 @@ class server:
         user = set(previous_words)
         n = min(ids - user)
         word_id, = cursor.execute(f"""SELECT word_id FROM learning WHERE id == {n}""").fetchone()
-        return server.find_word_in_DB(word_id)
+        return (server.find_word_in_DB(word_id), n)
+    
+    def create_exam_ej_question(learned_words: list[int]):
+        rndn = random.choice(learned_words)
+        word = server.find_word_by_learning(rndn)
+        question = "; ".join(word[OutKeys.DEFINITIONS][0][OutKeys.ENGLISH])
+        right = word[OutKeys.SLUG]
+        answers = {right}
+        while len(answers) < 4:
+            r = random.choice(learned_words)
+            w = server.find_word_by_learning(r)[OutKeys.SLUG]
+            answers.add(w)
+        answers = list(answers)
+        random.shuffle(answers)
+        right_n = 0
+        for i, ans in enumerate(answers):
+            if ans == right:
+                right_n = i
+                break
+        return (question, *answers, right_n)
+    
+    def create_exam_je_question(learned_words: list[int]):
+        rndn = random.choice(learned_words)
+        word = server.find_word_by_learning(rndn)
+        question = word[OutKeys.SLUG]
+        right = "; ".join(word[OutKeys.DEFINITIONS][0][OutKeys.ENGLISH])
+        answers = {right}
+        while len(answers) < 4:
+            r = random.choice(learned_words)
+            w = "; ".join(server.find_word_by_learning(r)[OutKeys.DEFINITIONS][0][OutKeys.ENGLISH])
+            answers.add(w)
+        answers = list(answers)
+        random.shuffle(answers)
+        right_n = 0
+        for i, ans in enumerate(answers):
+            if ans == right:
+                right_n = i
+                break
+        return (question, *answers, right_n)
 
 
 

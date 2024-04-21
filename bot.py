@@ -2,6 +2,8 @@ import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from telegram.ext import MessageHandler, filters, ConversationHandler, CommandHandler, ContextTypes, CallbackQueryHandler
 from server import server
+from jishoreader import OutKeys
+
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
@@ -22,35 +24,25 @@ class Bot():
 
 
     class States():
-        EXAM = "exam"
-        NEW = "new word" 
-        GET = "getword"
-
+        SELECTING_EXAM, EXAM, GET,EXAM_TEST, EXAM_TEST_EJ, EXAM_TEST_JE = range(6)
 
     class UserDataKeys():
-        SETTINGS = "SETTINGS"
         WORDS = "WORDS"
-        LEVEL = "LEVEL"
-         
-        EXAM_TYPE = "EXAM_TYPE" 
+        
+        EXAM_TYPE, EXAM_TESTED, EXAM_WORD, EXAM_COUNTS = range(6, 10)
 
-        NECECERALY_KEYS = [WORDS, LEVEL, SETTINGS]
+        NECESSARY_KEYS = [WORDS]
 
         DEFAULT_VALUES = {
-            WORDS: [],
-            LEVEL: 5,
-            SETTINGS: { #todo: create settings
-                "": ""
-            }
+            WORDS: []
         }
     
-    class CallbackWorker:
-        SETTINGS_HELLO = "hello"
-        async def on_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
-            query = update.callback_query
-            await query.answer()
-
-            await query.edit_message_text(query.data)
+    class CallBackTypes:
+        EXAM_ANSWER_1 = "EXAM_ANSWER_1"
+        EXAM_ANSWER_2 = "EXAM_ANSWER_2"
+        EXAM_ANSWER_3 = "EXAM_ANSWER_3"
+        EXAM_ANSWER_4 = "EXAM_ANSWER_4"
+        DONE = "DONE"
 
     async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"I don't know the command {update.message.text}")
@@ -61,8 +53,8 @@ class Bot():
         await update.message.reply_text(text)
 
     async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not len([k for k in context.user_data.keys() if k in Bot.UserDataKeys.NECECERALY_KEYS]) == len(Bot.UserDataKeys.NECECERALY_KEYS):
-            for key in Bot.UserDataKeys.NECECERALY_KEYS:
+        if not len([k for k in context.user_data.keys() if k in Bot.UserDataKeys.NECESSARY_KEYS]) == len(Bot.UserDataKeys.NECESSARY_KEYS):
+            for key in Bot.UserDataKeys.NECESSARY_KEYS:
                 context.user_data[key] = Bot.UserDataKeys.DEFAULT_VALUES[key]
 
             await update.message.reply_text(f"こんにちは{update.effective_sender.full_name}さん！")
@@ -71,18 +63,46 @@ class Bot():
             await update.message.reply_text(f"Hmm... It seems like you have already started.")
 
     async def new_words_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("This command is currently WIP. " + f"Command name {Bot.NEW_WORDS}")
+        if Bot.UserDataKeys.WORDS not in context.user_data.keys():
+            await update.message.reply_text("You did not /start")
+            return ConversationHandler.END
+        word, number = server.get_new_word(context.user_data[Bot.UserDataKeys.WORDS])
+        japanese = word[OutKeys.SLUG]
+        read = word[OutKeys.READ]
+        out = f"{japanese}({read})\n\nDefinitions:"
+        for index, pair in enumerate(word[OutKeys.DEFINITIONS]):
+            translations = pair[OutKeys.ENGLISH]
+            parts_of_speech = pair[OutKeys.PARTS_OF_SPEECH]
+
+            out += f"\n{', '.join(parts_of_speech)}\n{index+1}. {'; '.join(translations)}\n"
+        keyboard = [[InlineKeyboardButton("See also", url=f"https://jisho.org/word/{japanese}")]]
+        markup = InlineKeyboardMarkup(keyboard)
+        context.user_data[Bot.UserDataKeys.WORDS].append(number)
+        await update.message.reply_text(out, reply_markup=markup)
 
     async def get_info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Please specify the word you are interested in.")
         return Bot.States.GET
 
     async def exam_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("This command is currently WIP. " + f"Command name {Bot.EXAM}")
-        return ConversationHandler.END
-
+        if Bot.UserDataKeys.WORDS not in context.user_data.keys():
+            await update.message.reply_text("You did not /start")
+            return ConversationHandler.END
+        if not context.user_data[Bot.UserDataKeys.WORDS] or len(context.user_data[Bot.UserDataKeys.WORDS]) < 4:
+            await update.message.reply_text("Sorry, You can't take an exam because I don't know words you have learned.")
+            return ConversationHandler.END
+        keyboard = [
+            [InlineKeyboardButton("English to Japanese test", callback_data=Bot.States.EXAM_TEST_EJ)],
+            [InlineKeyboardButton("Japanese to English test", callback_data=Bot.States.EXAM_TEST_JE)],
+            ]
+        markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("What type of exam would you like to start?", reply_markup=markup)
+        return Bot.States.SELECTING_EXAM
+        
+        
     async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("There is nothing to cancel.")
+        return ConversationHandler.END
     
     async def cancel_command_in_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Action canceled!")
@@ -98,11 +118,37 @@ class Bot():
 
         await update.message.reply_text(text, **kwargs)
         return ConversationHandler.END
-    
-    async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        keyboard = [[InlineKeyboardButton("HELLO", callback_data=Bot.CallbackWorker.SETTINGS_HELLO)]]
-        markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("WIP", reply_markup=markup)
+
+    async def test_exam(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_answer = update.callback_query.data
+        if  user_answer == str(Bot.States.EXAM_TEST_EJ) or user_answer == str(Bot.States.EXAM_TEST_JE):
+            context.user_data[Bot.UserDataKeys.EXAM_TYPE] = user_answer
+            context.user_data[Bot.UserDataKeys.EXAM_TESTED] = []
+            context.user_data[Bot.UserDataKeys.EXAM_COUNTS] = [0, 0]
+        elif user_answer == Bot.CallBackTypes.DONE:
+            rig = context.user_data[Bot.UserDataKeys.EXAM_COUNTS][0]
+            count = context.user_data[Bot.UserDataKeys.EXAM_COUNTS][1]
+            await update.callback_query.answer()
+            await update.callback_query.edit_message_text(f"Thank you for this exam!\nRight answers: {rig}\nAnswers Count: {count}")
+            return ConversationHandler.END
+        elif user_answer[:-1] == "EXAM_ANSWER_":
+            ans = int(user_answer[-1]) - 1
+            context.user_data[Bot.UserDataKeys.EXAM_COUNTS][1] += 1
+            if context.user_data[Bot.UserDataKeys.EXAM_WORD] == ans:
+                context.user_data[Bot.UserDataKeys.EXAM_COUNTS][0] += 1
+        exam_type = context.user_data[Bot.UserDataKeys.EXAM_TYPE]
+        if exam_type == Bot.States.EXAM_TEST_EJ:
+            question, a1, a2, a3, a4, right = server.create_exam_ej_question(context.user_data[Bot.UserDataKeys.WORDS])
+        else:
+            question, a1, a2, a3, a4, right = server.create_exam_je_question(context.user_data[Bot.UserDataKeys.WORDS])
+        markup = InlineKeyboardMarkup([[InlineKeyboardButton(a1, callback_data=Bot.CallBackTypes.EXAM_ANSWER_1), InlineKeyboardButton(a2, callback_data=Bot.CallBackTypes.EXAM_ANSWER_2)],
+                                       [InlineKeyboardButton(a3, callback_data=Bot.CallBackTypes.EXAM_ANSWER_3), InlineKeyboardButton(a4, callback_data=Bot.CallBackTypes.EXAM_ANSWER_4)],
+                                       [InlineKeyboardButton("quit", callback_data=Bot.CallBackTypes.DONE)]])
+        context.user_data[Bot.UserDataKeys.EXAM_WORD] = right
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(question, reply_markup=markup)
+        return Bot.States.EXAM_TEST
+
 
     UNKNOWN_COMMAND = MessageHandler(filters.COMMAND, unknown_command)
 
@@ -113,25 +159,24 @@ class Bot():
         STOP: CommandHandler(STOP, stop_command),
         HELP: CommandHandler(HELP, help),
         CANCEL: CommandHandler(CANCEL, cancel_command),
-        SETTINGS: CommandHandler(SETTINGS, settings_command)
+        NEW_WORDS: CommandHandler(NEW_WORDS, new_words_command)
+        #SETTINGS: CommandHandler(SETTINGS, settings_command)
     }
-
+    Exam_SELECT_Callback = [
+        CallbackQueryHandler(test_exam,pattern="^" + str(States.EXAM_TEST_EJ) + "$"),
+        CallbackQueryHandler(test_exam,pattern="^" + str(States.EXAM_TEST_JE) + "$")
+    ]
     ExamHandler = ConversationHandler(
             entry_points=[CommandHandler(EXAM, exam_command)],
 
             states={
-                States.EXAM: [MessageHandler(filters.TEXT & ~filters.COMMAND, exam_command)]
+                States.SELECTING_EXAM: Exam_SELECT_Callback,
+                States.EXAM_TEST: [CallbackQueryHandler(test_exam)],
             },
 
             fallbacks=[COMMANDS[STOP], CancelHandler]
         )
-    New_wordHandler = ConversationHandler(
-        entry_points=[CommandHandler(NEW_WORDS, new_words_command)],
-        states={
-            States.NEW: []
-        },
-        fallbacks=[COMMANDS[STOP], CancelHandler]
-    )
+    
     INFO_HANDLER = ConversationHandler(
         entry_points=[CommandHandler(GET_INFO, get_info_command)],
         states={
@@ -140,11 +185,8 @@ class Bot():
         fallbacks=[COMMANDS[STOP], CancelHandler]
     )
 
-    CallbackHandler = CallbackQueryHandler(CallbackWorker.on_click)
     # "UNKNOWN_COMMAND" MUST BE AT THE END OF THIS LIST
     HANDLERS = [
         ExamHandler,
-        INFO_HANDLER,
-        New_wordHandler,
-        CallbackHandler
+        INFO_HANDLER
         ] + list(COMMANDS.values()) + [UNKNOWN_COMMAND]
