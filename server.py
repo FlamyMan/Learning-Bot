@@ -64,7 +64,7 @@ class server:
         japanese = word[OutKeys.SLUG]
         read = word[OutKeys.READ]
         definitions = word[OutKeys.DEFINITIONS]
-        
+        logging.info(f"SELECT id FROM Words WHERE word == \"{japanese}\" and read == \"{read}\"")
         found = cursor.execute(f"SELECT id FROM Words WHERE word == \"{japanese}\" and read == \"{read}\"").fetchall()
         if not found:
             logging.info(f"INSERT INTO Words(word, read) VALUES({japanese},{read})")
@@ -93,7 +93,11 @@ class server:
             found = cursor.execute(f"SELECT id FROM Words WHERE word == \"{japanese}\" and read == \"{read}\"").fetchall()
             while not found:
                 server.write_word_to_DB(connection, word)
-            cursor.execute(f"INSERT INTO learning(word_id) VALUES(\"{found[0][0]}\")")
+                found = cursor.execute(f"SELECT id FROM Words WHERE word == \"{japanese}\" and read == \"{read}\"").fetchall()
+            l_found = cursor.execute(f"SELECT id FROM learning Where word_id = {found[0][0]}").fetchall()
+            if not l_found:
+                logging.info(f"INSERT INTO learning(word_id) VALUES(\"{found[0][0]}\")")
+                cursor.execute(f"INSERT INTO learning(word_id) VALUES(\"{found[0][0]}\")")
         connection.commit()
     
     def find_word_in_DB(word_id):
@@ -144,7 +148,10 @@ class server:
         ids_raw = cursor.execute("""SELECT id FROM learning""").fetchall()
         ids = set([i[0] for i in ids_raw])
         user = set(previous_words)
-        n = min(ids - user)
+        vals = ids - user
+        if not vals:
+            raise Exception("No new words available")
+        n = min(vals)
         word_id, = cursor.execute(f"""SELECT word_id FROM learning WHERE id == {n}""").fetchone()
         return (server.find_word_in_DB(word_id), n)
     

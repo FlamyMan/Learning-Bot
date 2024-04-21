@@ -66,7 +66,11 @@ class Bot():
         if Bot.UserDataKeys.WORDS not in context.user_data.keys():
             await update.message.reply_text("You did not /start")
             return ConversationHandler.END
-        word, number = server.get_new_word(context.user_data[Bot.UserDataKeys.WORDS])
+        try:
+            word, number = server.get_new_word(context.user_data[Bot.UserDataKeys.WORDS])
+        except Exception as e:
+            await update.message.reply_text(e.args[0])
+            return ConversationHandler.END
         japanese = word[OutKeys.SLUG]
         read = word[OutKeys.READ]
         out = f"{japanese}({read})\n\nDefinitions:"
