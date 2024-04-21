@@ -1,7 +1,7 @@
 import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from telegram.ext import MessageHandler, filters, ConversationHandler, CommandHandler, ContextTypes, CallbackQueryHandler
-from server import get_info
+from server import server
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
@@ -78,7 +78,7 @@ class Bot():
         return Bot.States.GET
 
     async def exam_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("This command is currently WIP." + f"Command name {Bot.EXAM}")
+        await update.message.reply_text("This command is currently WIP. " + f"Command name {Bot.EXAM}")
         return ConversationHandler.END
 
     async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -87,13 +87,14 @@ class Bot():
     async def cancel_command_in_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Action canceled!")
         return ConversationHandler.END
+    
     async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.clear()
         await update.message.reply_text("さようなら！")
         return ConversationHandler.END
     
     async def get_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        text, kwargs = get_info.generate_bot_answer(update.message.text)
+        text, kwargs = server.generate_bot_answer(update.message.text)
 
         await update.message.reply_text(text, **kwargs)
         return ConversationHandler.END
@@ -122,21 +123,21 @@ class Bot():
                 States.EXAM: [MessageHandler(filters.TEXT & ~filters.COMMAND, exam_command)]
             },
 
-            fallbacks=[COMMANDS[STOP]]
+            fallbacks=[COMMANDS[STOP], CancelHandler]
         )
     New_wordHandler = ConversationHandler(
         entry_points=[CommandHandler(NEW_WORDS, new_words_command)],
         states={
             States.NEW: []
         },
-        fallbacks=[COMMANDS[STOP], COMMANDS[CANCEL]]
+        fallbacks=[COMMANDS[STOP], CancelHandler]
     )
     INFO_HANDLER = ConversationHandler(
         entry_points=[CommandHandler(GET_INFO, get_info_command)],
         states={
             States.GET: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_info)]
         },
-        fallbacks=[COMMANDS[STOP], COMMANDS[CANCEL]]
+        fallbacks=[COMMANDS[STOP], CancelHandler]
     )
 
     CallbackHandler = CallbackQueryHandler(CallbackWorker.on_click)
@@ -145,8 +146,5 @@ class Bot():
         ExamHandler,
         INFO_HANDLER,
         New_wordHandler,
-        CallbackHandler,
-        CancelHandler
+        CallbackHandler
         ] + list(COMMANDS.values()) + [UNKNOWN_COMMAND]
-
-

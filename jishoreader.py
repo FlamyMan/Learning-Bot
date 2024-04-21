@@ -10,16 +10,27 @@ import json
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
 )
+class OutKeys():
+    SLUG = "slug"
+    READ = "read"
+    DEFINITIONS = "definitions"
+    ENGLISH = "en"
+    PARTS_OF_SPEECH = "parts_of_speech"
+    EXCEPTION = "exception"
 
 def parse_word(word) -> dict:
     try:
         slug = word["slug"]
         read = word["japanese"][0]["reading"]
-        definitions = [[sens["english_definitions"], sens["parts_of_speech"]] for sens in word["senses"]]
+        definitions = [
+            {
+                OutKeys.ENGLISH: sens["english_definitions"],
+                OutKeys.PARTS_OF_SPEECH: sens["parts_of_speech"]
+            } for sens in word["senses"]]
         return {
-            "slug": slug,
-            "read": read,
-            "definitions": definitions
+            OutKeys.SLUG: slug,
+            OutKeys.READ: read,
+            OutKeys.DEFINITIONS: definitions
                 }
     except Exception:
         logging.exception(f"Cannot get word{word}")
@@ -28,7 +39,11 @@ def parse_word(word) -> dict:
 def parse_json(json) -> list[dict]:
     return [parse_word(word) for word in json]
 
-def get_jisho_data(question: str, page=1, limit=math.inf) -> list[dict]:
+def get_jisho_data(question: str, page: int=1, limit: int=math.inf) -> list[dict]:
+    if page <= 0:
+        raise ValueError("Argument \"page\" must be a Natural number")
+    if limit < page:
+        raise ValueError("Argument \"limit\" must be greater than \"page\"")
     raw = "https://jisho.org/api/v1/search/words?keyword={quest}&page={page}"
     question = question.replace('#', '%23')
     question = question.replace(' ', '%20')
@@ -46,14 +61,14 @@ def get_jisho_data(question: str, page=1, limit=math.inf) -> list[dict]:
                 break
         except Exception as e:
             logging.exception(e)
-            return [{"exception": "exception"}]
+            return [{OutKeys.EXCEPTION: 1}]
         if not data:
             break
         out += parse_json(data)
         if page >= limit:
             break
         page += 1
-        time.sleep(3)
+        time.sleep(5)
     logging.info(f"ended page {page}")
     return out
     
@@ -62,10 +77,9 @@ def write_jisho_to_file(question: str, page=1, limit=math.inf, output='out.json'
     data = get_jisho_data(question, page=page, limit=limit)
     stringdata = json.dumps(data, ensure_ascii=False)
     with open(output, "w", encoding="UTF-8") as f:
-        fullpath = f.name
         f.write(stringdata)
         if show_exp:
-            subprocess.Popen(rf'explorer /select,{fullpath}')
+            subprocess.Popen(rf'explorer /select,{f.name}')
 
 def main():
     parser = argparse.ArgumentParser()
