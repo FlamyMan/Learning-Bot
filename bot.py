@@ -57,7 +57,7 @@ class Bot():
             for key in Bot.UserDataKeys.NECESSARY_KEYS:
                 context.user_data[key] = Bot.UserDataKeys.DEFAULT_VALUES[key]
 
-            await update.message.reply_text(f"こんにちは{update.effective_sender.full_name}さん！")
+            await update.message.reply_text(f"こんにちは、お客さん！")
             await Bot.help(update, context)
         else:
             await update.message.reply_text(f"Hmm... It seems like you have already started.")
@@ -123,7 +123,7 @@ class Bot():
         await update.message.reply_text(text, **kwargs)
         return ConversationHandler.END
 
-    def exam_end_get_text(context: ContextTypes.DEFAULT_TYPE) -> str:
+    def exam_end_get_text(context: ContextTypes.DEFAULT_TYPE):
         rig = context.user_data[Bot.UserDataKeys.EXAM_COUNTS][0]
         count = context.user_data[Bot.UserDataKeys.EXAM_COUNTS][1]
         text = f"Thank you for this exam!\nRight answers: {rig}\nAnswers Count: {count}"

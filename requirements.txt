@@ -1,2 +1,2 @@
 requests==2.28.1
-python-telegram-bot[ext] --upgrade
+python-telegram-bot[ext]
