@@ -1,3 +1,4 @@
+import jishoreader
 from jishoreader import get_jisho_data, OutKeys
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 import sqlite3
@@ -12,7 +13,7 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logging.getLogger("httpx").setLevel(logging.WARNING)
-
+jishoreader.logger.setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 

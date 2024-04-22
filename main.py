@@ -1,6 +1,6 @@
 from telegram.ext import Application
 from bot import Bot
-import server
+import os
 from config import BOT_TOKEN
 
 def bot_main():
@@ -9,4 +9,5 @@ def bot_main():
     application.run_polling()
 
 if __name__ == '__main__':
-    bot_main()
+    print(BOT_TOKEN)
+    #bot_main()
