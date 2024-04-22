@@ -9,5 +9,4 @@ def bot_main():
     application.run_polling()
 
 if __name__ == '__main__':
-    print(BOT_TOKEN)
-    #bot_main()
+    bot_main()

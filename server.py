@@ -160,7 +160,7 @@ class server:
     
     def create_exam_ej_question(learned_words: list, tested_words: list):
         words = list(set(learned_words) - set(tested_words))
-        if len(words) < 4:
+        if len(words) == 0:
             raise Exception("Not enough words")
         rndn = random.choice(words)
         word = server.find_word_by_learning(rndn)
@@ -182,7 +182,7 @@ class server:
     
     def create_exam_je_question(learned_words: list, tested_words: list):
         words = list(set(learned_words) - set(tested_words))
-        if len(words) < 4:
+        if len(words) == 0:
             raise Exception("Not enough words")
         rndn = random.choice(words)
         word = server.find_word_by_learning(rndn)
