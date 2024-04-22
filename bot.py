@@ -170,12 +170,13 @@ class Bot():
         except Exception as e:
             if e.args[0] == "Not enough words":
                 text = Bot.exam_end_get_text(context)
+                await update.callback_query.answer()
                 await update.callback_query.edit_message_text(text)
                 return ConversationHandler.END
             else:
                 logging.error(e)
-                await update.callback_query.edit_message_text("Unexpected error caused. Try later")
                 await update.callback_query.answer()
+                await update.callback_query.edit_message_text("Unexpected error caused. Try later")
                 return ConversationHandler.END
         context.user_data[Bot.UserDataKeys.EXAM_TESTED].append(l_id)
 
