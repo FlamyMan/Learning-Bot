@@ -103,7 +103,6 @@ class Bot():
         await update.message.reply_text("What type of exam would you like to start?", reply_markup=markup)
         return Bot.States.SELECTING_EXAM
         
-        
     async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("There is nothing to cancel.")
         return ConversationHandler.END
@@ -206,7 +205,6 @@ class Bot():
         HELP: CommandHandler(HELP, help),
         CANCEL: CommandHandler(CANCEL, cancel_command),
         NEW_WORDS: CommandHandler(NEW_WORDS, new_words_command)
-        #SETTINGS: CommandHandler(SETTINGS, settings_command)
     }
     Exam_SELECT_Callback = [
         CallbackQueryHandler(test_exam,pattern="^" + str(States.EXAM_TEST_EJ) + "$"),

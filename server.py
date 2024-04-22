@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class server:
     CONNECTION = sqlite3.connect(DATABASE_PATH)
 
-    def generate_bot_answer(question: str) -> tuple[str, dict]:
+    def generate_bot_answer(question: str) -> tuple:
         words = get_jisho_data(question, 1, 1)
         
         if words:
@@ -40,7 +40,7 @@ class server:
         else:
             return (f"""I Don't know the word {question}""", {})
         
-    def formated_jisho_data(request, lim=math.inf) -> list[dict]:
+    def formated_jisho_data(request, lim=math.inf) -> list:
         data = get_jisho_data(request, limit=lim)
         if not data or (OutKeys.EXCEPTION in set([tuple(t.keys()) for t in data])):
             logging.warning("The data is empty or exception")
@@ -145,7 +145,7 @@ class server:
         return server.find_word_in_DB(word_id)
 
 
-    def get_new_word(previous_words: list[int]):
+    def get_new_word(previous_words: list):
         cursor = server.CONNECTION.cursor()
         ids_raw = cursor.execute("""SELECT id FROM learning""").fetchall()
         ids = set([i[0] for i in ids_raw])
@@ -157,7 +157,7 @@ class server:
         word_id, = cursor.execute(f"""SELECT word_id FROM learning WHERE id == {n}""").fetchone()
         return (server.find_word_in_DB(word_id), n)
     
-    def create_exam_ej_question(learned_words: list[int], tested_words: list[int]):
+    def create_exam_ej_question(learned_words: list, tested_words: list):
         words = list(set(learned_words) - set(tested_words))
         if len(words) < 4:
             raise Exception("Not enough words")
@@ -179,7 +179,7 @@ class server:
                 break
         return (question, *answers, right_n, rndn)
     
-    def create_exam_je_question(learned_words: list[int], tested_words: list[int]):
+    def create_exam_je_question(learned_words: list, tested_words: list):
         words = list(set(learned_words) - set(tested_words))
         if len(words) < 4:
             raise Exception("Not enough words")

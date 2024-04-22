@@ -36,10 +36,10 @@ def parse_word(word) -> dict:
         logging.exception(f"Cannot get word{word}")
         return ""
 
-def parse_json(json) -> list[dict]:
+def parse_json(json):
     return [parse_word(word) for word in json]
 
-def get_jisho_data(question: str, page: int=1, limit: int=math.inf) -> list[dict]:
+def get_jisho_data(question: str, page: int=1, limit: int=math.inf) -> list:
     if page <= 0:
         raise ValueError("Argument \"page\" must be a Natural number")
     if limit < page:
