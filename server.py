@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 class server:
+    CONNECTION = sqlite3.connect(DATABASE_PATH)
+
     def generate_bot_answer(question: str) -> tuple[str, dict]:
         words = get_jisho_data(question, 1, 1)
         
@@ -57,9 +59,9 @@ class server:
                     pos[i] = pos[i].replace('"', "||")
         return data
     
-    def write_word_to_DB(connection, word) -> None:
+    def write_word_to_DB(word: dict) -> None:
         # word => definition => pos
-        cursor = connection.cursor()
+        cursor = server.CONNECTION.cursor()
         
         japanese = word[OutKeys.SLUG]
         read = word[OutKeys.READ]
@@ -80,29 +82,27 @@ class server:
                 cursor.execute(f"""
                         INSERT INTO parts_of_speech(word_id, definition_id, parts_of_speech)
                         VALUES ({word_id}, {d_id}, \"{pos}\")""")
-        connection.commit()
+        server.CONNECTION.commit()
     
-    def add_learn_material(request, lim=math.inf):
+    def add_learn_material(request, lim=math.inf) -> None:
         data = server.formated_jisho_data(request, lim)
-        connection = sqlite3.connect(DATABASE_PATH)
-        cursor = connection.cursor()
+        cursor = server.CONNECTION.cursor()
         
         for word in data:
             japanese = word[OutKeys.SLUG]
             read = word[OutKeys.READ]
             found = cursor.execute(f"SELECT id FROM Words WHERE word == \"{japanese}\" and read == \"{read}\"").fetchall()
             while not found:
-                server.write_word_to_DB(connection, word)
+                server.write_word_to_DB(word)
                 found = cursor.execute(f"SELECT id FROM Words WHERE word == \"{japanese}\" and read == \"{read}\"").fetchall()
             l_found = cursor.execute(f"SELECT id FROM learning Where word_id = {found[0][0]}").fetchall()
             if not l_found:
                 logging.info(f"INSERT INTO learning(word_id) VALUES(\"{found[0][0]}\")")
                 cursor.execute(f"INSERT INTO learning(word_id) VALUES(\"{found[0][0]}\")")
-        connection.commit()
+        server.CONNECTION.commit()
     
-    def find_word_in_DB(word_id):
-        connection = sqlite3.connect(DATABASE_PATH)
-        cursor = connection.cursor()
+    def find_word_in_DB(word_id)-> dict:
+        cursor = server.CONNECTION.cursor()
         word_raw = cursor.execute(f"""
                             SELECT
                                 Words.word,
@@ -135,16 +135,18 @@ class server:
             OutKeys.DEFINITIONS: definitions
         }
     
-    def find_word_by_learning(learning_id):
-        connection = sqlite3.connect(DATABASE_PATH)
-        cursor = connection.cursor()
+    def find_word_id_by_learning(learning_id) -> int:
+        cursor = server.CONNECTION.cursor()
         word_id, = cursor.execute(f"""SELECT word_id FROM learning WHERE id == {learning_id}""").fetchone()
+        return word_id
+    
+    def find_word_by_learning(learning_id) -> dict:
+        word_id = server.find_word_id_by_learning(learning_id)
         return server.find_word_in_DB(word_id)
 
 
     def get_new_word(previous_words: list[int]):
-        connection = sqlite3.connect(DATABASE_PATH)
-        cursor = connection.cursor()
+        cursor = server.CONNECTION.cursor()
         ids_raw = cursor.execute("""SELECT id FROM learning""").fetchall()
         ids = set([i[0] for i in ids_raw])
         user = set(previous_words)
@@ -155,8 +157,11 @@ class server:
         word_id, = cursor.execute(f"""SELECT word_id FROM learning WHERE id == {n}""").fetchone()
         return (server.find_word_in_DB(word_id), n)
     
-    def create_exam_ej_question(learned_words: list[int]):
-        rndn = random.choice(learned_words)
+    def create_exam_ej_question(learned_words: list[int], tested_words: list[int]):
+        words = list(set(learned_words) - set(tested_words))
+        if len(words) < 4:
+            raise Exception("Not enough words")
+        rndn = random.choice(words)
         word = server.find_word_by_learning(rndn)
         question = "; ".join(word[OutKeys.DEFINITIONS][0][OutKeys.ENGLISH])
         right = word[OutKeys.SLUG]
@@ -172,10 +177,13 @@ class server:
             if ans == right:
                 right_n = i
                 break
-        return (question, *answers, right_n)
+        return (question, *answers, right_n, rndn)
     
-    def create_exam_je_question(learned_words: list[int]):
-        rndn = random.choice(learned_words)
+    def create_exam_je_question(learned_words: list[int], tested_words: list[int]):
+        words = list(set(learned_words) - set(tested_words))
+        if len(words) < 4:
+            raise Exception("Not enough words")
+        rndn = random.choice(words)
         word = server.find_word_by_learning(rndn)
         question = word[OutKeys.SLUG]
         right = "; ".join(word[OutKeys.DEFINITIONS][0][OutKeys.ENGLISH])
@@ -191,7 +199,7 @@ class server:
             if ans == right:
                 right_n = i
                 break
-        return (question, *answers, right_n)
+        return (question, *answers, right_n, rndn)
 
 
 

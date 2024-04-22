@@ -29,7 +29,7 @@ class Bot():
     class UserDataKeys():
         WORDS = "WORDS"
         
-        EXAM_TYPE, EXAM_TESTED, EXAM_WORD, EXAM_COUNTS = range(6, 10)
+        EXAM_TYPE, EXAM_TESTED, EXAM_WORD, EXAM_COUNTS, EXAM_WRONGS = range(6, 11)
 
         NECESSARY_KEYS = [WORDS]
 
@@ -96,8 +96,8 @@ class Bot():
             await update.message.reply_text("Sorry, You can't take an exam because I don't know words you have learned.")
             return ConversationHandler.END
         keyboard = [
-            [InlineKeyboardButton("English to Japanese test", callback_data=Bot.States.EXAM_TEST_EJ)],
-            [InlineKeyboardButton("Japanese to English test", callback_data=Bot.States.EXAM_TEST_JE)],
+            [InlineKeyboardButton("English to Japanese test", callback_data=str(Bot.States.EXAM_TEST_EJ))],
+            [InlineKeyboardButton("Japanese to English test", callback_data=str(Bot.States.EXAM_TEST_JE))],
             ]
         markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text("What type of exam would you like to start?", reply_markup=markup)
@@ -123,31 +123,73 @@ class Bot():
         await update.message.reply_text(text, **kwargs)
         return ConversationHandler.END
 
+    def exam_end_get_text(context: ContextTypes.DEFAULT_TYPE) -> str:
+        rig = context.user_data[Bot.UserDataKeys.EXAM_COUNTS][0]
+        count = context.user_data[Bot.UserDataKeys.EXAM_COUNTS][1]
+        text = f"Thank you for this exam!\nRight answers: {rig}\nAnswers Count: {count}"
+        while context.user_data[Bot.UserDataKeys.EXAM_WRONGS]:
+            l_id = context.user_data[Bot.UserDataKeys.EXAM_WRONGS].pop()
+            word = server.find_word_by_learning(l_id)
+            tx = f'\nWrong word - {word[OutKeys.SLUG]}\n\t{"; ".join(word[OutKeys.DEFINITIONS][0][OutKeys.ENGLISH])}\n'
+            text += tx
+        return text
+    
+    def exam_init(etype, context: ContextTypes.DEFAULT_TYPE):
+        context.user_data[Bot.UserDataKeys.EXAM_TYPE] = etype
+        context.user_data[Bot.UserDataKeys.EXAM_TESTED] = []
+        context.user_data[Bot.UserDataKeys.EXAM_COUNTS] = [0, 0]
+        context.user_data[Bot.UserDataKeys.EXAM_WRONGS] = []
+        
+    def exam_check_answer(answer, context: ContextTypes.DEFAULT_TYPE):
+
+        context.user_data[Bot.UserDataKeys.EXAM_COUNTS][1] += 1
+        if context.user_data[Bot.UserDataKeys.EXAM_WORD] == answer:
+            context.user_data[Bot.UserDataKeys.EXAM_COUNTS][0] += 1
+        else:
+            context.user_data[Bot.UserDataKeys.EXAM_WRONGS] += [context.user_data[Bot.UserDataKeys.EXAM_TESTED][-1]]
+            
     async def test_exam(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_answer = update.callback_query.data
         if  user_answer == str(Bot.States.EXAM_TEST_EJ) or user_answer == str(Bot.States.EXAM_TEST_JE):
-            context.user_data[Bot.UserDataKeys.EXAM_TYPE] = user_answer
-            context.user_data[Bot.UserDataKeys.EXAM_TESTED] = []
-            context.user_data[Bot.UserDataKeys.EXAM_COUNTS] = [0, 0]
+            Bot.exam_init(user_answer, context)
         elif user_answer == Bot.CallBackTypes.DONE:
-            rig = context.user_data[Bot.UserDataKeys.EXAM_COUNTS][0]
-            count = context.user_data[Bot.UserDataKeys.EXAM_COUNTS][1]
+            text = Bot.exam_end_get_text(context)
             await update.callback_query.answer()
-            await update.callback_query.edit_message_text(f"Thank you for this exam!\nRight answers: {rig}\nAnswers Count: {count}")
+            await update.callback_query.edit_message_text(text)
             return ConversationHandler.END
         elif user_answer[:-1] == "EXAM_ANSWER_":
             ans = int(user_answer[-1]) - 1
-            context.user_data[Bot.UserDataKeys.EXAM_COUNTS][1] += 1
-            if context.user_data[Bot.UserDataKeys.EXAM_WORD] == ans:
-                context.user_data[Bot.UserDataKeys.EXAM_COUNTS][0] += 1
+            Bot.exam_check_answer(ans, context)
+
+
         exam_type = context.user_data[Bot.UserDataKeys.EXAM_TYPE]
-        if exam_type == Bot.States.EXAM_TEST_EJ:
-            question, a1, a2, a3, a4, right = server.create_exam_ej_question(context.user_data[Bot.UserDataKeys.WORDS])
-        else:
-            question, a1, a2, a3, a4, right = server.create_exam_je_question(context.user_data[Bot.UserDataKeys.WORDS])
-        markup = InlineKeyboardMarkup([[InlineKeyboardButton(a1, callback_data=Bot.CallBackTypes.EXAM_ANSWER_1), InlineKeyboardButton(a2, callback_data=Bot.CallBackTypes.EXAM_ANSWER_2)],
-                                       [InlineKeyboardButton(a3, callback_data=Bot.CallBackTypes.EXAM_ANSWER_3), InlineKeyboardButton(a4, callback_data=Bot.CallBackTypes.EXAM_ANSWER_4)],
-                                       [InlineKeyboardButton("quit", callback_data=Bot.CallBackTypes.DONE)]])
+        try:
+            if exam_type == str(Bot.States.EXAM_TEST_EJ):
+                question, a1, a2, a3, a4, right, l_id = server.create_exam_ej_question(context.user_data[Bot.UserDataKeys.WORDS], context.user_data[Bot.UserDataKeys.EXAM_TESTED])
+            elif exam_type == str(Bot.States.EXAM_TEST_JE):
+                question, a1, a2, a3, a4, right, l_id = server.create_exam_je_question(context.user_data[Bot.UserDataKeys.WORDS], context.user_data[Bot.UserDataKeys.EXAM_TESTED])
+        except Exception as e:
+            if e.args[0] == "Not enough words":
+                text = Bot.exam_end_get_text(context)
+                await update.callback_query.edit_message_text(text)
+                return ConversationHandler.END
+            else:
+                logging.error(e)
+                await update.callback_query.edit_message_text("Unexpected error caused. Try later")
+                await update.callback_query.answer()
+                return ConversationHandler.END
+        context.user_data[Bot.UserDataKeys.EXAM_TESTED].append(l_id)
+
+
+        markup = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(a1, callback_data=Bot.CallBackTypes.EXAM_ANSWER_1),
+            InlineKeyboardButton(a2, callback_data=Bot.CallBackTypes.EXAM_ANSWER_2)],
+        [
+            InlineKeyboardButton(a3, callback_data=Bot.CallBackTypes.EXAM_ANSWER_3),
+            InlineKeyboardButton(a4, callback_data=Bot.CallBackTypes.EXAM_ANSWER_4)
+        ],
+            [InlineKeyboardButton("quit", callback_data=Bot.CallBackTypes.DONE)]])
         context.user_data[Bot.UserDataKeys.EXAM_WORD] = right
         await update.callback_query.answer()
         await update.callback_query.edit_message_text(question, reply_markup=markup)
